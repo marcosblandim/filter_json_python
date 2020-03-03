@@ -1,7 +1,6 @@
 import requests
 import json
 from flask import Flask
-import argparse
 
 # custom filter json
 def filter_json(j_txt, keys):
@@ -16,41 +15,54 @@ def filter_json(j_txt, keys):
         filtered_json = dict()
         for (key, value) in dictionary.items():
             if key in keys:
+                if key =="time":
+                    value = value.split(".")[0]
+                    val = value.split(' ')
+                    value = val[0] + " time " + val[1]
+                    # value = "time " + value
                 filtered_json[key] = value
         list_of_j.append(filtered_json)
-    return list_of_j
+        json_var = str(list_of_j).replace("}, ","}<br>")
+        json_var = remove(json_var, ['[',']','\n','{','}'])
+        json_var = json_var.replace('", "', " ; ")
+        json_var = json_var.replace('":"', " = ")
+        json_var = remove(json_var, ['"', ''])
+        json_var = json_var.replace("time:", "date")
+        json_var = json_var.replace("value", "person(s)")
+    return json_var
 
-# get json
-url = "https://uiot-dims.herokuapp.com/list/data?serviceNumber=777365"
-try:
-    r = requests.get(url)
-except:
-    raise Exception("request failed.")
-j_txt = r.text
-j_py = json.loads(j_txt) # list of JSONs
+def remove(string, bad_symbols):
+    for symbol in bad_symbols:
+        string = string.replace(symbol,'')
+    return string
 
-# filtering
-keys = ["time", "value"]
-j_py = filter_json(j_py, keys)
+# returns final result (j_txt)
+def main():
+    # get json
+    url = "https://uiot-dims.herokuapp.com/list/data?serviceNumber=777365"
+    try:
+        r = requests.get(url)
+    except:
+        raise Exception("request failed.")
+    json_var = json.loads(r.text) # list of JSONs
 
-# back to json
-j_txt = json.dumps(j_py)
+    # filtering
+    keys = ["time", "value"]
+    json_var = filter_json(json_var, keys) # returns string
+
+    return json_var
 
 # output to file
 filename = "filtered_dims.txt"
 with open(filename, 'w') as outfile:
-    json.dump(j_py, outfile)
+    json.dump(main(), outfile)
 
 # set the server
 from flask import Flask
 app = Flask(__name__)
 @app.route('/')
 def serve_json():
-    return j_txt
+    return main()
 
-'''
-note that to set the server 
-you must run with:
-$ export FLASK_APP=main.py
-$ flask run
-'''
+if __name__ == "__main__":
+    app.run()
